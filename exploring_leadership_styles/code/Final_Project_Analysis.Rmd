@@ -1,0 +1,383 @@
+# DANA 4830 Final Project
+
+## Importing Libraries
+```{r}
+library(psych)
+library(GPArotation)
+library(FactoMineR)
+library(factoextra)
+library(ggplot2)
+library(outliers)
+library(tidyverse)
+library(tidytext)
+library(R.utils)
+library(wordcloud)
+library(viridis)
+library(car)
+library(dplyr)
+```
+
+# Data Fetching, Cleaning and Variable Selection performed in Python
+
+# Reading Data Created in Python
+```{r}
+dataset_2014 <- read.csv("APS_FINAL_DATA_2014.csv")
+dataset_2015 <- read.csv("APS_FINAL_DATA.csv")
+```
+
+# Selecting Columns to Encode
+```{r}
+
+cols_2014 <- c("q18a","q18b", "q18c", "q18d", "q18e", "q19a", "q19b", "q19c", "q19d", "q19e", "q20a", "q20b", "q20c", "q20d", "q20e", "q20f", "q20g", "q21a", "q21b", "q21c", "q21d", "q21e", "q21f", "q21g", "q21h", "q21i", "q21j", "q22b", "q22h", "q22i", "q22j", "q22o", "q24h","q50b", "q50c", "q79b", "q79c", "q79d","q24c","q24m", "q24o", "q24p","q33", "q34", "q55a", "q55b", "q55c", "q55d", "q55e", "q55f", "q55g", "q55h", "q55i", "q55j","q36a", "q36b", "q36c", "q36d", "q36e", "q36f", "q36g")
+
+cols_2015 <- c("q17a", "q17b", "q17c", "q17d", "q18a", "q18b", "q18c", "q18d", "q18e", "q18f", "q20a", "q20b", "q20c", "q20d", "q20e", "q20f", "q20g", "q20h", "q20i", "q21a", "q21b", "q21c", "q21d", "q21e", "q21f", "q21g", "q21h", "q21i", "q21j", "q22b", "q22h", "q22i", "q22j", "q22k", "q24h","q37a", "q37b", "q37c", "q37d", "q37e", "q37f", "q37g", "q37h", "q37i", "q37j", "q37k", "q37l", "q53b", "q53c", "q64c", "q67c", "q67d", "q67e","q24c", "q24m", "q24o", "q24p", "q32", "q33", "q58a", "q58b", "q58c", "q58d", "q58e", "q58f", "q58g", "q58h", "q58i", "q58j", "q35a", "q35b", "q35c", "q35d", "q35e", "q35f", "q35g")
+```
+
+# Encoding Columns
+```{r}
+dataset_mod_2014 <- dataset_2014 %>% 
+                    mutate_at(cols_2014,
+                              funs(recode(.,'"Strongly agree" = 1;"Agree" = 2;"Neither agree nor disagree" =3;"Disagree" = 4;"Strongly disagree" = 5')))
+
+dataset_mod_2014 <- dataset_mod_2014 %>% 
+                    mutate_at(cols_2014,
+                              funs(recode(.,'"To a very great extent" = 1;"Quite a lot" = 2;"Somewhat" =3;"Hardly at all" = 4;"Not at all" = 5')))
+
+dataset_mod_2014 <- dataset_mod_2014 %>% 
+                    mutate_at(cols_2014,
+                              funs(recode(.,'"Very satisfied" = 1;"Satisfied" = 2;"Neither satisfied nor dissatisfied" =3;"Dissatisfied" = 4;"Very dissatisfied" = 5')))
+
+dataset_mod_2014 <- dataset_mod_2014 %>% 
+                    mutate_at(cols_2014,
+                              funs(recode(.,'"Always" = 1;"Often"=2;"Sometimes"=3;"Rarely" = 4;"Never" = 5')))
+
+
+
+dataset_mod_2015 <- dataset_2015 %>% 
+                    mutate_at(cols_2015,
+                              funs(recode(.,'"Strongly agree" = 1;"Agree" = 2;"Neither agree nor disagree" =3;"Disagree" = 4;"Strongly disagree" = 5')))
+
+dataset_mod_2015 <- dataset_mod_2015 %>%
+                    mutate_at(cols_2015,
+                              funs(recode(.,'"To a very great extent" = 1;"Quite a lot" = 2;"Somewhat" =3;"Hardly at all" = 4;"Not at all" = 5')))
+
+dataset_mod_2015 <- dataset_mod_2015 %>%
+                    mutate_at(cols_2015,
+                              funs(recode(.,'"Very satisfied" = 1;"Satisfied" = 2;"Neither satisfied or dissatisfied" =3;"Dissatisfied" = 4;"Very dissatisfied" = 5')))
+
+dataset_mod_2015 <- dataset_mod_2015 %>%
+                    mutate_at(cols_2015,
+                              funs(recode(.,'"Always" = 1;"Often"=2;"Sometimes"=3;"Rarely" = 4;"Never" = 5')))
+
+```
+
+# Negative Questions
+```{r}
+dataset_mod_2014 <- dataset_mod_2014 %>%
+                    mutate_at(c("q36a"),
+                              funs(recode(.,'"Always" = 5;"Often"=4;"Sometimes"=3;"Rarely" = 2;"Never" = 1')))
+
+dataset_mod_2015 <- dataset_mod_2015 %>%
+                    mutate_at(c("q35a"),
+                              funs(recode(.,'"Always" = 5;"Often"=4;"Sometimes"=3;"Rarely" = 2;"Never" = 1')))
+
+```
+
+# Z Scaling
+```{r}
+dataZ = list()
+for (i in c("q24m", "q24o","q53b", "q53c", "q58a", "q58b", "q58c", "q58d",
+            "q58e", "q58f", "q58g", "q58h", "q58i", "q58j","q64c",
+            "q67c","q67d", "q67e")){
+  z.scores <- data.frame(dataset_mod_2015[i] %>% scores(type = "z"))
+  dataZ[i] <- z.scores
+}
+
+max <-data.frame(mapply(max, dataZ))
+min <-data.frame(mapply(min, dataZ))
+max_minZ <- cbind(max,min)
+
+
+z.scores <- dataset_mod_2015$q67e %>% scores(type = "z")
+z.scores %>% summary()
+length (which( abs(z.scores) >3 ))
+```
+
+# Writing to CSV Files
+```{r}
+write.csv(max_minZ, "Zscore.csv")
+write.csv(dataset_mod_2014, "APS_FINAL_DATA_2014_en.csv")
+write.csv(dataset_mod_2015, "APS_FINAL_DATA_2015_en.csv")
+```
+
+# Reading Encoded Data | Selecting Variables for EFA
+```{r}
+aps_data <- read.csv('APS_FINAL_DATA_2015_en.csv')
+
+efa_data <- aps_data[c("q20b","q20d","q20e","q20f","q20g", "q24m", "q24o", "q53b", "q53c", "q58a", "q58b", "q58c", "q58d", "q58e","q58f", "q58g", "q58h", "q58i", "q58j","q64c", "q67c", "q67d", "q67e")]
+aps_data$q2[aps_data$q2 ==  "45 to 49 years" | aps_data$q2 ==  "40 to 44 years" | aps_data$q2 ==  "50 to 54 years"]<- "40 to 54 years"
+aps_data$q2[aps_data$q2 ==  "35 to 39 years" | aps_data$q2 ==  "30 to 34 years" | aps_data$q2 ==  "Under 30 years"]<- "Under 40 years"
+aps_data$q2[aps_data$q2 != "40 to 54 years" & aps_data$q2 != "Under 40 years"] <- "55 years or more"
+
+aps_data$q8[aps_data$q8 ==  "5 to less than 10 years" | aps_data$q8 ==  "1 to less than 5 years" | aps_data$q8 ==  "Less than 1 year"]<- "Less than 10 years"
+aps_data$q8[aps_data$q8 ==  "10 to less than 15 years" | aps_data$q8 ==  "15 to less than 20 years" ]<- "10 to less than 20 years"
+str(efa_data)
+```
+
+
+# Exploratory Factor Analysis
+
+## Checking Correlation & Bartlett Test 
+```{r}
+correlation <- cor(efa_data)
+cortest.bartlett(correlation)
+```
+Since p-value is less than 0.05, thus variables are correlated thus we will use oblimin rotation for factor analysis
+
+## Checking KMO Test
+```{r}
+KMO(correlation)
+```
+KMO also results in correlation useful for ca for analysis
+
+# Determing Number of Factors to Select
+```{r}
+n_fact <- fa.parallel(efa_data, fm="ml", fa="fa")
+
+```
+
+One factor with large eigen value and other 5 with small values.
+
+## Model One: Supervisor + Agency
+# New Kaiser Criterion
+```{r}
+sum(n_fact$fa.values > 0.7)
+```
+
+```{r}
+fa_model <- fa(efa_data, nfactors = 3, rotate = "oblimin", fm="ml")
+fa.diagram(fa_model)
+```
+
+https://www.eaglesflight.com/blog/the-essential-role-of-feedback-in-leadership-development
+
+```{r}
+fa_model
+```
+
+## Model Two: Supervisor only
+```{r}
+efa_data_red <- efa_data[-c(6,7,20,22,23)]
+correlation_red <- cor(efa_data_red)
+cortest.bartlett(correlation_red)
+```
+Since p-value is less than 0.05, thus variables are correlated thus we will use oblimin rotation for factor analysis
+
+```{r}
+KMO(correlation_red)
+```
+KMO also results in correlation useful for caftor analysis
+
+```{r}
+n_fact_red <- fa.parallel(efa_data_red, fm="ml", fa="fa")
+
+```
+One factor with large eigen value and other 5 with small values.
+
+# New Kaiser Criterion
+```{r}
+sum(n_fact_red$fa.values > 0.7)
+```
+
+```{r}
+fa_model_red <- fa(efa_data_red, nfactors = 2, rotate = "oblimin", fm="ml")
+fa.diagram(fa_model_red)
+```
+
+# Simple Structure
+```{r}
+print(fa_model_red$loadings, cutoff = 0.3)
+```
+
+```{r}
+fa_model_red
+```
+
+
+Mediocre FIT based on RMSEA
+https://stats.idre.ucla.edu/spss/seminars/introduction-to-factor-analysis/a-practical-introduction-to-factor-analysis-confirmatory-factor-analysis/
+
+# Correspondance Analysis
+
+## Immediate Workgroup : Male vs Female
+```{r}
+for (col in c('q18a','q18b', 'q18c', 'q18d', 'q18e', 'q18f')){
+  print(col)
+  q.ca <- CA(table(aps_data$q1, aps_data[,col]))
+  x_vals <- c(q.ca$row$coord,q.ca$col$coord)
+  x_labs <- c('F','M','1','2','3','4','5')
+  xlim <- c(min(x_vals)-0.1,max(x_vals)+0.1);
+  ylim <- c(0,1);
+  py <- c(0,0,0,0,0,0,0);
+  ly <- c(0.1,0.2,0.3,0.4,0.5,0.6,0.7);
+  
+  ## create basic plot outline
+  par(xaxs='i',yaxs='i',mar=c(5,1,1,1));
+  plot(NA,xlim=xlim,ylim=ylim,axes=F,ann=F);
+  axis(1);
+  
+  # ## plot elements
+  segments(x_vals,py,x_vals,ly);
+  points(x_vals,py,pch=16,xpd=NA);
+  text(x_vals,ly,x_vals,pos=3, labels = x_labs);
+  print(ggplot(data = as.data.frame(t(table(aps_data$q1, aps_data[,col]))), aes(x = Var2, y = Freq, fill = Var1)) + 
+  geom_bar(stat = "identity",
+           position = position_dodge(),
+           alpha = 0.75) + 
+  geom_text(aes(label = Freq),
+            fontface = "bold",
+            vjust = 1.5,
+            position = position_dodge(.9),
+            size = 4) + 
+  labs(x = "\n Gender", y = "Frequency\n",
+       title = "\n Immediate Workgroup Analysis \n") +
+  theme(plot.title = element_text(hjust = 0.5),
+        axis.title.x = element_text(face="bold", 
+                                    colour="red", 
+                                    size = 12),
+        axis.title.y = element_text(face="bold", 
+                                    colour="red", 
+                                    size = 12),
+        legend.title = element_text(face="bold", size = 10)))
+}
+
+```
+
+
+## Immediate Supervisor : Male vs Female
+```{r}
+library(ggplot2)
+for (col in c('q20a','q20b', 'q20c', 'q20d', 'q20e', 'q20f', 'q20g', 'q20h','q20i')){
+  print(col)
+  q.ca <- CA(table(aps_data$q1, aps_data[,col]))
+  x_vals <- c(q.ca$row$coord,q.ca$col$coord)
+  x_labs <- c('F','M','1','2','3','4','5')
+  xlim <- c(min(x_vals)-0.1,max(x_vals)+0.1);
+  ylim <- c(0,1);
+  py <- c(0,0,0,0,0,0,0);
+  ly <- c(0.1,0.2,0.3,0.4,0.5,0.6,0.7);
+  
+  ## create basic plot outline
+  par(xaxs='i',yaxs='i',mar=c(5,1,1,1));
+  plot(NA,xlim=xlim,ylim=ylim,axes=F,ann=F);
+  axis(1);
+  
+  # ## plot elements
+  segments(x_vals,py,x_vals,ly);
+  points(x_vals,py,pch=16,xpd=NA);
+  text(x_vals,ly,x_vals,pos=3, labels = x_labs);
+  print(ggplot(data = as.data.frame(t(table(aps_data$q1, aps_data[,col]))), aes(x = Var2, y = Freq, fill = Var1)) + 
+  geom_bar(stat = "identity",
+           position = position_dodge(),
+           alpha = 0.75) + 
+  geom_text(aes(label = Freq),
+            fontface = "bold",
+            vjust = 1.5,
+            position = position_dodge(.9),
+            size = 4) + 
+  labs(x = "\n Gender", y = "Frequency\n",
+       title = "\n Immediate Supervisor Analysis \n") +
+  theme(plot.title = element_text(hjust = 0.5),
+        axis.title.x = element_text(face="bold", 
+                                    colour="red", 
+                                    size = 12),
+        axis.title.y = element_text(face="bold", 
+                                    colour="red", 
+                                    size = 12),
+        legend.title = element_text(face="bold", size = 10)))
+}
+```
+
+## Wellbeing Analysis : 2014 vs 2015
+
+```{r}
+aps_data_15 <- read.csv('APS_FINAL_DATA.csv')
+for (col1 in c("AC1","AS2","q2")){
+  for (col2 in c("q22h","q22i","q24c","q32","q35a","q35b","q35f"))
+    {
+    obs_res <- chisq.test(aps_data_15[,col1], aps_data_15[,col2])
+    if (obs_res$p.value < 0.05 & col1 != col2){print(paste(col1,col2))
+      print(paste(obs_res$statistic, obs_res$p.value))
+      ca_model <- CA(table(aps_data_15[,col1], aps_data_15[,col2]), graph = FALSE)
+      print(fviz_ca_biplot(ca_model, title = paste("CA - Biplot ", col1, " vs ", col2)))
+      }
+  }
+}
+```
+
+
+### Comparing with 2014
+```{r}
+aps_data_2014 <- read.csv('APS_FINAL_DATA_2014_en.csv')[,-c(1,2)]
+```
+```{r}
+aps_data_14 <- read.csv('APS_FINAL_DATA_2014.csv')
+for (col1 in c("Agency_Cluster", "Agency_Size", "q2..")){
+  for (col2 in c("q22h","q22i","q24c","q33","q36a","q36b","q36f")){
+    obs_res <- chisq.test(aps_data_14[,col1], aps_data_14[,col2])
+    if (obs_res$p.value < 0.05 & col1 != col2){print(paste(col1,col2))
+      print(paste(obs_res$statistic, obs_res$p.value))
+      ca_model <- CA(table(aps_data_14[,col1], aps_data_14[,col2]), graph = FALSE)
+      print(fviz_ca_biplot(ca_model, title = paste("CA - Biplot ", col1, " vs ", col2)))
+      }
+  }
+}
+
+```
+
+
+## Productivity & Ways of Working Analysis : 2014 vs 2015
+
+```{r}
+for (col1 in c("AC1","AS2","q2")){
+  for (col2 in c("q17a","q18c","q24h","q35b","q35f"))
+    {
+    obs_res <- chisq.test(aps_data_15[,col1], aps_data_15[,col2])
+    if (obs_res$p.value < 0.05 & col1 != col2){print(paste(col1,col2))
+      print(paste(obs_res$statistic, obs_res$p.value))
+      ca_model <- CA(table(aps_data_15[,col1], aps_data_15[,col2]), graph = FALSE)
+      print(fviz_ca_biplot(ca_model, title = paste("CA - Biplot ", col1, " vs ", col2)))
+      }
+  }
+}
+
+```
+
+
+### Comparing with 2014
+```{r}
+aps_data_14 <- read.csv('APS_FINAL_DATA_2014.csv')
+```
+```{r}
+for (col1 in c("Agency_Cluster", "Agency_Size", "q2..")){
+  for (col2 in c("q18a","q19b","q24h","q36b","q36f")){
+    obs_res <- chisq.test(aps_data_14[,col1], aps_data_14[,col2])
+    if (obs_res$p.value < 0.05 & col1 != col2){print(paste(col1,col2))
+      print(paste(obs_res$statistic, obs_res$p.value))
+      ca_model <- CA(table(aps_data_14[,col1], aps_data_14[,col2]), graph = FALSE)
+      print(fviz_ca_biplot(ca_model, title = paste("CA - Biplot ", col1, " vs ", col2)))
+      }
+  }
+}
+
+```
+
+## Further Analysis in Python Based on Index
+
+
+```{r}
+write.csv(efa_data_red, 'EFA_DATASET.csv')
+ca_data <- aps_data_15[c("AC1","AS2","q1","q2", "q17a", 'q18a','q18b', 'q18c', 'q18d', 'q18e', 'q18f','q20a','q20b', 'q20c', 'q20d', 'q20e', 'q20f', 'q20g', 'q20h','q20i', "q22h","q22i","q24c","q24h","q32","q35a","q35b","q35f")]
+write.csv(ca_data, 'CA_DATASET.csv')
+```
+
